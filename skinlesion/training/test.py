@@ -10,7 +10,7 @@ import torch.nn.functional as F
 model = models.resnet50()
 model.fc = nn.Linear(model.fc.in_features, 14)
 
-model.load_state_dict(torch.load("../../skin-lesions-resnet50.pt"))
+model.load_state_dict(torch.load("../../models/skin-lesions-resnet50.pt"))
 model.eval()
 
 test_transform = transforms.Compose([

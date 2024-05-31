@@ -1,4 +1,7 @@
+import csv
 import os
+from itertools import chain
+
 import torch.nn as nn
 import torchvision.models as models
 import torch.onnx
@@ -10,13 +13,18 @@ from torchvision.models import ResNet50_Weights
 
 
 class Training:
+    def __init__(self, datasets_dir: str = "./datasets", batch_size: int = 64, epochs: int = 10,
+                 models_dir: str = "./models", model_file: str = "resnet50_skin_lesions.pt",
+                 classes_file: str = "classes.csv"):
 
-    def __init__(self, data_dir: str = "./datasets", batch_size: int = 64, epochs: int = 10,
-                 model_file: str = "resnet50_skin_lesions.pt", ):
         logging.info("Creating Training class...")
 
-        self.data_dir = data_dir
-        logging.info(f"Data Directory = {self.data_dir}")
+        self.datasets_dir = datasets_dir
+        logging.info(f"Datasets Directory = {self.datasets_dir}")
+        self.models_dir = models_dir
+        logging.info(f"Models Directory = {self.models_dir}")
+        self.classes_file = classes_file
+        logging.info(f"Classes File = {self.classes_file}")
         self.batch_size = batch_size
         logging.info(f"Batch Size = {self.batch_size}")
         self.epochs = epochs
@@ -40,10 +48,18 @@ class Training:
         logging.info("Preparing class...")
 
         logging.info("Creating transformers")
+
         self.train_transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomPerspective(),
             transforms.RandomRotation(20),
+            transforms.RandomAffine(20),
+            transforms.RandomAdjustSharpness(20),
+            transforms.RandomAutocontrast(),
+            transforms.RandomPosterize(20),
+            transforms.RandomSolarize(20),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -56,8 +72,10 @@ class Training:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        self.train_dataset = datasets.ImageFolder(os.path.join(self.data_dir, 'train'), transform=self.train_transform)
-        self.valid_dataset = datasets.ImageFolder(os.path.join(self.data_dir, 'val'), transform=self.valid_transform)
+        self.train_dataset = datasets.ImageFolder(os.path.join(self.datasets_dir, 'train'),
+                                                  transform=self.train_transform)
+        self.valid_dataset = datasets.ImageFolder(os.path.join(self.datasets_dir, 'val'),
+                                                  transform=self.valid_transform)
 
         self.train_loader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
         self.valid_loader = DataLoader(self.valid_dataset, batch_size=self.batch_size, shuffle=False)
@@ -85,44 +103,60 @@ class Training:
 
     def train(self):
 
-        for epoch in range(self.epochs):
-            self.model.train()
-            running_loss = 0.0
-            batch_num = 0
-            for inputs, labels in self.train_loader:
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+        # for epoch in range(self.epochs):
+        #     self.train_epoch(epoch)
+        #     self.evaluate_epoch(epoch)
 
-                self.optimizer.zero_grad()
+        self.save_trained_model()
+
+    def save_trained_model(self):
+        model_filename = os.path.join(self.models_dir, self.model_file)
+        logging.info(f"Saving model state to file {model_filename}")
+        torch.save(self.model.state_dict(), self.model_file)
+
+        class_filename = os.path.join(self.models_dir, self.classes_file)
+        logging.info(f"Saving model classes to file {class_filename}")
+        classes = zip(range(len(self.train_dataset.classes)), self.train_dataset.classes)
+
+        with open(class_filename, "w", newline='') as csv_file:
+            csvwriter = csv.writer(csv_file)
+            csvwriter.writerows(classes)
+
+    def evaluate_epoch(self, epoch):
+        logging.info(f"Evaluating after Epoch {epoch + 1}...")
+
+        self.model.eval()
+        val_loss = 0.0
+        corrects = 0
+        with torch.no_grad():
+            for inputs, labels in self.valid_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
-                loss.backward()
-                self.optimizer.step()
+                val_loss += loss.item() * inputs.size(0)
+                predictions = torch.argmax(outputs, dim=1)
+                corrects += torch.sum(predictions == labels.data)
+        val_loss = val_loss / len(self.valid_loader.dataset)
+        val_acc = corrects.double() / len(self.valid_loader.dataset)
+        logging.info(f'Validation Loss: {val_loss:.4f}, Accuracy: {val_acc:.4f}')
 
-                running_loss += loss.item() * inputs.size(0)
-                if batch_num % 100 == 0:
-                    logging.info(f"Batch {batch_num + 1}, Running loss: {running_loss:.4f}")
-                batch_num += 1
+    def train_epoch(self, epoch):
+        logging.info(f"Training Epoch {epoch + 1}...")
+        self.model.train()
+        running_loss = 0.0
+        batch_num = 0
+        for inputs, labels in self.train_loader:
+            inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-            epoch_loss = running_loss / len(self.train_loader.dataset)
-            logging.info(f"Epoch {epoch + 1}/{self.epochs}, Loss: {epoch_loss:.4f}")
+            self.optimizer.zero_grad()
+            outputs = self.model(inputs)
+            loss = self.criterion(outputs, labels)
+            loss.backward()
+            self.optimizer.step()
 
-            logging.info(f"Evaluating after Epoch {epoch + 1}...")
-            self.model.eval()
-            val_loss = 0.0
-            corrects = 0
-            with torch.no_grad():
-                for inputs, labels in self.valid_loader:
-                    inputs, labels = inputs.to(self.device), labels.to(self.device)
-                    outputs = self.model(inputs)
-                    loss = self.criterion(outputs, labels)
-                    val_loss += loss.item() * inputs.size(0)
-                    predictions = torch.argmax(outputs, dim=1)
-                    corrects += torch.sum(predictions == labels.data)
-
-            val_loss = val_loss / len(self.valid_loader.dataset)
-            val_acc = corrects.double() / len(self.valid_loader.dataset)
-            logging.info(f'Validation Loss: {val_loss:.4f}, Accuracy: {val_acc:.4f}')
-
-        filename=os.path.join(self.data_dir, self.model_file)
-        logging.info(f"Saving model state to file {filename}")
-        torch.save(self.model.state_dict(), filename)
+            running_loss += loss.item() * inputs.size(0)
+            if batch_num % 100 == 0:
+                logging.info(f"Batch {batch_num + 1}, Running loss: {running_loss:.4f}")
+            batch_num += 1
+        epoch_loss = running_loss / len(self.train_loader.dataset)
+        logging.info(f"Epoch {epoch + 1}/{self.epochs}, Loss: {epoch_loss:.4f}")
