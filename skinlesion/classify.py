@@ -86,6 +86,6 @@ class Classify:
 
         # Print sorted pairs
         for pair in sorted_pairs:
-            print(f'Class: {pair[0]}, Probability: {pair[1]:.2f}%')
+            logging.debug(f'Class: {pair[0]}, Probability: {pair[1]:.2f}%')
 
         return sorted_pairs

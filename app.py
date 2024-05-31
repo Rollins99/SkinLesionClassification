@@ -47,6 +47,7 @@ if train:
     training_session.train()
 
 if classify:
+    logging.info("Preparing classifier...")
     classifier = Classify()
     predictions = classifier.classify(Image.open("CHP_02_01_1.jpg"))
     logging.info(predictions)
