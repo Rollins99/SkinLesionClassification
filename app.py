@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 
 from PIL import Image
@@ -14,6 +15,7 @@ train = False
 classify = False
 test = False
 server = False
+filename = None
 
 for i in range(1, len(sys.argv)):
 
@@ -22,8 +24,14 @@ for i in range(1, len(sys.argv)):
     if arg == "train":
         train = True
         logging.info("'train' selected")
-    elif arg == "classify":
+    elif arg.startswith("classify"):
         classify = True
+        parts = arg.split("=")
+        if len(parts) != 2:
+            logging.error("Expecting 'classify=<filename>'")
+            sys.exit(-4)
+
+        filename = parts[1]
         logging.info("'classify' selected")
     elif arg == "test":
         test = True
@@ -49,7 +57,15 @@ if train:
 if classify:
     logging.info("Preparing classifier...")
     classifier = Classify()
-    predictions = classifier.classify(Image.open("CHP_02_01_1.jpg"))
+    if filename is None or not os.path.exists(filename):
+        logging.error("File for classification does not exist ")
+        sys.exit(-3)
+
+    predictions = classifier.classify(Image.open(filename), top_count=1)
     logging.info(predictions)
 
+if test:
+    logging.info("TODO: Running tests...")
 
+if server:
+    logging.info("TODO: Running server...")

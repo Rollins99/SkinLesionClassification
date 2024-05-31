@@ -1,6 +1,7 @@
 import csv
 import logging
 import os
+import threading
 
 import torch
 import torch.nn as nn
@@ -56,36 +57,41 @@ class Classify:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
+        self._lock = threading.Lock()
+
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
             cls._instance = super(Classify, cls).__new__(cls, *args, **kwargs)
         else:
-            cls.logger.info("Using singleton instance of Classify class")
+            logging.info("Using singleton instance of Classify class")
 
         return cls._instance
 
-    def classify(self, image: PILImage):
-        # Must be RGB, transform to tensor
-        image = self.transform(image.convert("RGB"))
+    def classify(self, image: PILImage, top_count: int = 0):
+        with self._lock:
+            # Must be RGB, transform to tensor
+            image = self.transform(image.convert("RGB"))
 
-        # Add extra dimension as we're not processing a batch
-        image = image.unsqueeze(0)
+            # Add extra dimension as we're not processing a batch
+            image = image.unsqueeze(0)
 
-        # send to device (e.g. cuda)
-        image = image.to(self.device)
+            # send to device (e.g. cuda)
+            image = image.to(self.device)
 
-        # get output tensor
-        output = self.model(image)
+            # get output tensor
+            output = self.model(image)
 
-        # Compute the class probabilities using the softmax function
-        percentages = torch.round((F.softmax(output, dim=1) * 100)).tolist()[0]
+            # Compute the class probabilities using the softmax function
+            percentages = torch.round((F.softmax(output, dim=1) * 100)).tolist()[0]
 
-        # Prepare class and probability pairs for sorting
-        class_prob_pairs = [(self.class_to_label[i], prob) for i, prob in enumerate(percentages)]
-        sorted_pairs = sorted(class_prob_pairs, key=lambda x: x[1], reverse=True)
+            # Prepare class and probability pairs for sorting
+            class_prob_pairs = [(self.class_to_label[i], prob) for i, prob in enumerate(percentages)]
+            sorted_pairs = sorted(class_prob_pairs, key=lambda x: x[1], reverse=True)
 
-        # Print sorted pairs
-        for pair in sorted_pairs:
-            logging.debug(f'Class: {pair[0]}, Probability: {pair[1]:.2f}%')
+            # Print sorted pairs
+            for pair in sorted_pairs:
+                logging.debug(f'Class: {pair[0]}, Probability: {pair[1]:.2f}%')
 
-        return sorted_pairs
+            if top_count == 0:
+                top_count = len(self.class_to_label)
+            return sorted_pairs[:top_count]

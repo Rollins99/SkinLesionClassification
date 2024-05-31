@@ -102,10 +102,9 @@ class Training:
             self.model.to(self.device)
 
     def train(self):
-
-        # for epoch in range(self.epochs):
-        #     self.train_epoch(epoch)
-        #     self.evaluate_epoch(epoch)
+        for epoch in range(self.epochs):
+            self.train_epoch(epoch)
+            self.evaluate_epoch(epoch)
 
         self.save_trained_model()
 
