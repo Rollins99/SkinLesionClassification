@@ -116,11 +116,10 @@ class Training:
 
         class_filename = os.path.join(self.models_dir, self.classes_file)
         logging.info(f"Saving model classes to file {class_filename}")
-        classes = zip(range(len(self.train_dataset.classes)), self.train_dataset.classes)
 
         with open(class_filename, "w", newline='') as csv_file:
-            csvwriter = csv.writer(csv_file)
-            csvwriter.writerows(classes)
+            for index, element in enumerate(self.train_dataset.classes):
+                csv_file.write(f"{index},\"{element}\"\n")
 
     def evaluate_epoch(self, epoch):
         logging.info(f"Evaluating after Epoch {epoch + 1}...")

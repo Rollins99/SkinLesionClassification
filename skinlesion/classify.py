@@ -26,20 +26,24 @@ class Classify:
 
         self.classes_file = classes_file
         logging.info(f"Classes file={self.classes_file}")
+        self.class_to_label = {}
 
         class_filename = os.path.join(self.models_dir, self.classes_file)
         logging.info(f"Loading classes file {class_filename}")
-        with open(class_filename, mode='r') as infile:
-            reader = csv.DictReader(infile)
-            self.class_to_label = {row[0]: row[1] for row in reader}
+        with open(class_filename, mode="r", newline="") as in_file:
+            reader = csv.reader(in_file)
+            for row in reader:
+                self.class_to_label[int(row[0])] = row[1]
 
-        logging.info("Loading model")
+        logging.info("Loading model...")
         self.model = models.resnet50()
         self.model.fc = nn.Linear(self.model.fc.in_features, len(self.class_to_label))
-        self.model.load_state_dict(torch.load(model_file))
+        model_filename = os.path.join(self.models_dir, self.model_file)
+        self.model.load_state_dict(torch.load(model_filename))
 
-        logging.info("Model in eval mode")
+        logging.info("Model into eval mode")
         self.model.eval()
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f"Using device {self.device}")
         self.model.to(self.device)
@@ -82,6 +86,6 @@ class Classify:
 
         # Print sorted pairs
         for pair in sorted_pairs:
-            print(f'Class: {pair[0]}, Probability: {pair[1] * 100:.2f}%')
+            print(f'Class: {pair[0]}, Probability: {pair[1]:.2f}%')
 
         return sorted_pairs
