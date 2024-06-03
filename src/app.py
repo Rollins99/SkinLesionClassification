@@ -4,6 +4,7 @@ import sys
 
 from PIL import Image
 from skinlesion.classify import Classify
+from skinlesion.training.test import Tester
 from skinlesion.training.training import Training
 
 logging.basicConfig(
@@ -61,11 +62,15 @@ if classify:
         logging.error("File for classification does not exist ")
         sys.exit(-3)
 
+    classifier.prepare()
     predictions = classifier.classify(Image.open(filename), top_count=1)
     logging.info(predictions)
 
 if test:
-    logging.info("TODO: Running tests...")
+    logging.info("Beginning testing...")
+    tester = Tester()
+    tester.prepare()
+    tester.test()
 
 if server:
     logging.info("TODO: Running server...")

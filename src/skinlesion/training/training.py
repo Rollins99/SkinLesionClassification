@@ -11,6 +11,8 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from torchvision.models import ResNet50_Weights
 
+from skinlesion.model_classes import ModelClasses
+
 
 class Training:
     def __init__(self, datasets_dir: str = "./datasets", batch_size: int = 64, epochs: int = 10,
@@ -32,6 +34,7 @@ class Training:
         self.model_file = model_file
         logging.info(f"Output Model File = {self.model_file}")
 
+        self.prepared=False
         self.device = None
         self.train_transform = None
         self.valid_transform = None
@@ -45,7 +48,7 @@ class Training:
         self.train_loader = None
 
     def prepare(self):
-        logging.info("Preparing class...")
+        logging.info("Preparing training...")
 
         logging.info("Creating transformers")
 
@@ -101,7 +104,12 @@ class Training:
         else:
             self.model.to(self.device)
 
+        self.prepared = True
+
     def train(self):
+        if not self.prepared:
+            raise AssertionError("The training class has not been prepared. Run prepare()")
+
         for epoch in range(self.epochs):
             self.train_epoch(epoch)
             self.evaluate_epoch(epoch)
@@ -114,11 +122,7 @@ class Training:
         torch.save(self.model.state_dict(), self.model_file)
 
         class_filename = os.path.join(self.models_dir, self.classes_file)
-        logging.info(f"Saving model classes to file {class_filename}")
-
-        with open(class_filename, "w", newline='') as csv_file:
-            for index, element in enumerate(self.train_dataset.classes):
-                csv_file.write(f"{index},\"{element}\"\n")
+        ModelClasses.save(class_filename, self.train_dataset.classes)
 
     def evaluate_epoch(self, epoch):
         logging.info(f"Evaluating after Epoch {epoch + 1}...")
