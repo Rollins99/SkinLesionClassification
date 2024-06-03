@@ -61,7 +61,7 @@ class Training:
             transforms.RandomAffine(20),
             transforms.RandomAdjustSharpness(20),
             transforms.RandomAutocontrast(),
-            transforms.RandomPosterize(20),
+            transforms.RandomPosterize(8),
             transforms.RandomSolarize(20),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
             transforms.ToTensor(),

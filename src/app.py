@@ -51,7 +51,7 @@ if not train and not classify and not test and not server:
 if train:
     logging.info("Beginning training...")
     training_session = Training(datasets_dir="./datasets", batch_size=64, model_file="skin-lesions-resnet50.pt",
-                                models_dir="./models", classes_file="classes.csv")
+                                models_dir="./models", classes_file="classes.csv", epochs=20)
     training_session.prepare()
     training_session.train()
 
