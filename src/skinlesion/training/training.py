@@ -119,7 +119,7 @@ class Training:
     def save_trained_model(self):
         model_filename = os.path.join(self.models_dir, self.model_file)
         logging.info(f"Saving model state to file {model_filename}")
-        torch.save(self.model.state_dict(), self.model_file)
+        torch.save(self.model.state_dict(), model_filename)
 
         class_filename = os.path.join(self.models_dir, self.classes_file)
         ModelClasses.save(class_filename, self.train_dataset.classes)
